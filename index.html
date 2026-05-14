@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>陪睡小猫</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐱</text></svg>">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    width: 100vw; height: 100dvh;
+    overflow: hidden;
+    background: linear-gradient(180deg, #100c1a 0%, #1a1628 35%, #1f1a2c 65%, #181420 100%);
+    font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* 星空 */
+  .stars-container {
+    position: fixed; inset: 0; z-index: 6;
+    pointer-events: none;
+    opacity: 0; transition: opacity 2s ease;
+  }
+  .stars-container.active { opacity: 1; }
+  .star {
+    position: absolute;
+    border-radius: 50%; background: #fff;
+    animation: twinkle var(--dur) ease-in-out infinite;
+    animation-delay: var(--delay);
+    box-shadow: 0 0 5px 2px rgba(255,250,235,0.5);
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: 0.15; transform: scale(1); }
+    50% { opacity: 1; transform: scale(2); }
+  }
+
+  /* 暗色遮罩 */
+  .dark-overlay {
+    position: fixed; inset: 0; z-index: 5;
+    background: rgba(0,0,0,0);
+    pointer-events: none;
+    transition: background 1.5s ease;
+  }
+  .dark-overlay.active { background: rgba(0,0,0,0.5); }
+
+  /* 场景 */
+  .scene {
+    position: relative; z-index: 10;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    width: 100%; max-width: 420px;
+    height: 100dvh; padding: 20px;
+  }
+
+  /* 文字气泡 */
+  .text-bubble {
+    position: relative;
+    background: #fff8f0;
+    color: #4a3728;
+    padding: 14px 22px; border-radius: 22px;
+    font-size: 16px; letter-spacing: 0.5px;
+    text-align: center; line-height: 1.6;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.5s, transform 0.5s;
+    pointer-events: none;
+    margin-bottom: 10px; max-width: 88%;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+    min-height: 46px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .text-bubble::after {
+    content: '';
+    position: absolute; bottom: -8px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #fff8f0;
+  }
+  .text-bubble.show { opacity: 1; transform: translateY(0); }
+
+  /* 猫咪容器 */
+  .cat-area {
+    position: relative;
+    width: 260px; height: 300px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 外层：呼吸 */
+  .cat {
+    position: absolute;
+    width: 220px; height: 250px;
+    left: 50%; top: 20px;
+    transform: translateX(-50%);
+    animation: catBreathe 4.5s ease-in-out infinite;
+  }
+  .cat.comfort { animation: catBreatheSlow 9s ease-in-out infinite; }
+
+  @keyframes catBreathe {
+    0%,100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.045); }
+  }
+  @keyframes catBreatheSlow {
+    0%,100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.022); }
+  }
+
+  /* 中层：倾斜 */
+  .cat-inner {
+    width: 100%; height: 100%;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* SVG猫 */
+  .cat-svg {
+    width: 100%; height: 100%;
+    transition: transform 0.08s;
+  }
+  .cat-svg.purring { animation: purrVibrate 0.09s linear infinite; }
+  @keyframes purrVibrate {
+    0%,100% { transform: translate(0,0); }
+    25% { transform: translate(0.6px, -0.3px); }
+    50% { transform: translate(-0.4px, 0.4px); }
+    75% { transform: translate(-0.5px, -0.2px); }
+  }
+
+  /* 眼睛状态 */
+  .eyes-open { transition: opacity 0.06s; }
+  .eyes-closed { opacity: 0; transition: opacity 0.06s; }
+  .eyes-sleepy { opacity: 0; transition: opacity 0.06s; }
+  .cat.blinking .eyes-open { opacity: 0; }
+  .cat.blinking .eyes-closed { opacity: 1; }
+  .cat.sleepy-face .eyes-open { opacity: 0; }
+  .cat.sleepy-face .eyes-closed { opacity: 0; }
+  .cat.sleepy-face .eyes-sleepy { opacity: 1; }
+
+  /* 被子 */
+  .blanket-overlay {
+    position: absolute; bottom: -8px; left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    width: 180px; height: 80px;
+    opacity: 0; transition: opacity 1s ease, transform 1s ease;
+    pointer-events: none; z-index: 10;
+  }
+  .blanket-overlay.active { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 心形 */
+  .heart-particle {
+    position: fixed; pointer-events: none; z-index: 20;
+    font-size: 18px;
+    animation: floatUp 1s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-70px) scale(0.4); }
+  }
+
+  /* 控制 */
+  .controls {
+    position: absolute; bottom: 20px;
+    display: flex; gap: 12px; z-index: 20;
+  }
+  .ctrl-btn {
+    width: 42px; height: 42px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: 19px; cursor: pointer; color: #bbb;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ctrl-btn.active {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,200,150,0.4);
+    color: #ffe0c0;
+    box-shadow: 0 0 18px rgba(255,170,100,0.15);
+  }
+
+  /* 安抚提示 */
+  .mode-hint {
+    position: absolute; bottom: 74px;
+    color: rgba(255,255,255,0.25);
+    font-size: 12px; z-index: 20;
+    letter-spacing: 1px;
+    opacity: 0; transition: opacity 0.8s;
+  }
+  .mode-hint.show { opacity: 1; }
+
+  @media (max-width: 360px) {
+    .cat-area { width: 230px; height: 270px; }
+    .cat { width: 195px; height: 225px; }
+    .blanket-overlay { width: 155px; height: 68px; }
+    .text-bubble { font-size: 14px; padding: 10px 16px; }
+  }
+  @media (min-width: 420px) {
+    .cat-area { width: 290px; height: 330px; }
+    .cat { width: 250px; height: 280px; }
+    .blanket-overlay { width: 205px; height: 90px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars-container" id="starsContainer"></div>
+<div class="dark-overlay" id="darkOverlay"></div>
+
+<div class="scene">
+  <div class="text-bubble" id="textBubble"></div>
+
+  <div class="cat-area" id="catArea">
+    <div class="cat" id="cat">
+      <div class="cat-inner" id="catInner">
+
+        <svg viewBox="0 0 200 260" class="cat-svg" id="catSvg">
+          <defs>
+            <radialGradient id="fur" cx="42%" cy="32%">
+              <stop offset="0%" stop-color="#fcd9a5"/>
+              <stop offset="45%" stop-color="#f0b860"/>
+              <stop offset="100%" stop-color="#d48a3a"/>
+            </radialGradient>
+            <radialGradient id="bedGrad" cx="50%" cy="25%">
+              <stop offset="0%" stop-color="#b89478"/>
+              <stop offset="100%" stop-color="#5c3d2e"/>
+            </radialGradient>
+            <radialGradient id="blanketGrad" cx="50%" cy="0%">
+              <stop offset="0%" stop-color="#f0d8e8"/>
+              <stop offset="100%" stop-color="#d4a0c4"/>
+            </radialGradient>
+          </defs>
+
+          <!-- 猫窝 -->
+          <ellipse cx="100" cy="225" rx="88" ry="26" fill="#4a3022" opacity="0.6"/>
+          <ellipse cx="100" cy="222" rx="86" ry="25" fill="url(#bedGrad)"/>
+          <ellipse cx="100" cy="218" rx="70" ry="18" fill="#c4a080"/>
+
+          <!-- 尾巴 -->
+          <g id="tail">
+            <path d="M 148,170 Q 178,158 182,130 Q 186,102 168,88"
+                  stroke="#e8a050" stroke-width="17" fill="none" stroke-linecap="round"/>
+            <path d="M 148,170 Q 178,158 182,130 Q 186,102 168,88"
+                  stroke="#f0b860" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.5"/>
+          </g>
+
+          <!-- 身体 -->
+          <ellipse cx="100" cy="152" rx="52" ry="43" fill="url(#fur)"/>
+          <ellipse cx="100" cy="160" rx="30" ry="24" fill="#fff3e0" opacity="0.85"/>
+          <!-- 肚皮毛 -->
+          <ellipse cx="100" cy="168" rx="18" ry="14" fill="#fff8f0"/>
+
+          <!-- 头 -->
+          <circle cx="100" cy="85" r="46" fill="url(#fur)"/>
+          <!-- 脸下半浅色 -->
+          <ellipse cx="100" cy="98" rx="30" ry="22" fill="#fff3e0" opacity="0.55"/>
+
+          <!-- 耳朵 -->
+          <g>
+            <!-- 左耳 -->
+            <ellipse cx="60" cy="48" rx="17" ry="26" fill="url(#fur)" transform="rotate(-12,60,48)"/>
+            <ellipse cx="62" cy="50" rx="10" ry="17" fill="#fcc" transform="rotate(-12,62,50)"/>
+            <!-- 右耳 -->
+            <ellipse cx="140" cy="48" rx="17" ry="26" fill="url(#fur)" transform="rotate(12,140,48)"/>
+            <ellipse cx="138" cy="50" rx="10" ry="17" fill="#fcc" transform="rotate(12,138,50)"/>
+          </g>
+
+          <!-- 眼睛-张开 -->
+          <g class="eyes-open">
+            <!-- 左眼 -->
+            <circle cx="82" cy="82" r="11.5" fill="#221a12"/>
+            <circle cx="80" cy="79" r="3.8" fill="#fff"/>
+            <circle cx="86" cy="85" r="1.8" fill="#fff" opacity="0.7"/>
+            <!-- 右眼 -->
+            <circle cx="118" cy="82" r="11.5" fill="#221a12"/>
+            <circle cx="116" cy="79" r="3.8" fill="#fff"/>
+            <circle cx="122" cy="85" r="1.8" fill="#fff" opacity="0.7"/>
+          </g>
+
+          <!-- 眼睛-闭眼（眨眼用） -->
+          <g class="eyes-closed">
+            <line x1="73" y1="83" x2="91" y2="83" stroke="#221a12" stroke-width="3" stroke-linecap="round"/>
+            <line x1="109" y1="83" x2="127" y2="83" stroke="#221a12" stroke-width="3" stroke-linecap="round"/>
+          </g>
+
+          <!-- 眼睛-睡眼（安抚模式） -->
+          <g class="eyes-sleepy">
+            <path d="M 72,84 Q 81.5,90 91,84" stroke="#221a12" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+            <path d="M 109,84 Q 118.5,90 128,84" stroke="#221a12" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+          </g>
+
+          <!-- 鼻子 -->
+          <ellipse cx="100" cy="99" rx="5.5" ry="4" fill="#ff8a8a"/>
+
+          <!-- 嘴巴 -->
+          <g stroke="#c4956b" stroke-width="1.6" fill="none" stroke-linecap="round">
+            <path d="M 94,98 Q 88,106 82,104"/>
+            <path d="M 106,98 Q 112,106 118,104"/>
+          </g>
+
+          <!-- 腮红 -->
+          <ellipse cx="68" cy="95" rx="9" ry="5.5" fill="#ffb6a0" opacity="0.4"/>
+          <ellipse cx="132" cy="95" rx="9" ry="5.5" fill="#ffb6a0" opacity="0.4"/>
+
+          <!-- 胡须 -->
+          <g stroke="rgba(170,140,110,0.35)" stroke-width="1.2" stroke-linecap="round">
+            <!-- 左 -->
+            <line x1="62" y1="92" x2="24" y2="86"/>
+            <line x1="60" y1="98" x2="22" y2="98"/>
+            <line x1="62" y1="104" x2="26" y2="112"/>
+            <!-- 右 -->
+            <line x1="138" y1="92" x2="176" y2="86"/>
+            <line x1="140" y1="98" x2="178" y2="98"/>
+            <line x1="138" y1="104" x2="174" y2="112"/>
+          </g>
+
+          <!-- 前爪 -->
+          <ellipse cx="70" cy="190" rx="15" ry="11" fill="url(#fur)"/>
+          <ellipse cx="130" cy="190" rx="15" ry="11" fill="url(#fur)"/>
+          <!-- 肉垫 -->
+          <ellipse cx="70" cy="193" rx="7" ry="5" fill="#fcc" opacity="0.45"/>
+          <ellipse cx="130" cy="193" rx="7" ry="5" fill="#fcc" opacity="0.45"/>
+        </svg>
+
+      </div>
+
+      <!-- 被子 SVG -->
+      <svg viewBox="0 0 200 260" class="blanket-overlay" id="blanket">
+        <defs>
+          <linearGradient id="blGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#eed4e4"/>
+            <stop offset="100%" stop-color="#d4a0c4"/>
+          </linearGradient>
+        </defs>
+        <path d="M 28,195 Q 28,160 100,152 Q 172,160 172,195 L 172,230 Q 100,238 28,230 Z" fill="url(#blGrad)" opacity="0.92"/>
+        <text x="100" y="206" text-anchor="middle" font-size="13" opacity="0.35">&#x2B50;</text>
+        <text x="100" y="224" text-anchor="middle" font-size="10" opacity="0.25">&#x1F4A4;</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="mode-hint" id="modeHint">长按猫咪 · 进入安抚模式</div>
+
+  <div class="controls">
+    <button class="ctrl-btn active" id="rainBtn" title="雨声">🌧</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ========== 音频引擎（简化版，无杂音） ==========
+  let audioCtx = null;
+  let rainGain = null;
+  let purrOsc = null;
+  let purrGain = null;
+  let purrFilter = null;
+  let purrInterval = null;
+  let rainOn = true;
+  let purring = false;
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    setupRain();
+  }
+
+  function setupRain() {
+    if (!audioCtx) return;
+    const sr = audioCtx.sampleRate;
+    const len = sr * 3;
+    const buf = audioCtx.createBuffer(2, len, sr);
+
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      // 用低通滤波后的噪声模拟雨声
+      let prev = 0;
+      for (let i = 0; i < len; i++) {
+        const raw = Math.random() * 2 - 1;
+        prev = prev + (raw - prev) * 0.03; // 简单低通
+        d[i] = prev * 0.6;
+      }
+    }
+
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 600;
+
+    rainGain = audioCtx.createGain();
+    rainGain.gain.value = 0.1;
+
+    src.connect(lp);
+    lp.connect(rainGain);
+    rainGain.connect(audioCtx.destination);
+    src.start();
+  }
+
+  function startPurr() {
+    if (!audioCtx || purring) return;
+    purring = true;
+
+    purrOsc = audioCtx.createOscillator();
+    purrOsc.type = 'sine';
+    purrOsc.frequency.value = 24;
+
+    purrFilter = audioCtx.createBiquadFilter();
+    purrFilter.type = 'lowpass';
+    purrFilter.frequency.value = 150;
+    purrFilter.Q.value = 2;
+
+    purrGain = audioCtx.createGain();
+    purrGain.gain.value = 0;
+
+    purrOsc.connect(purrFilter);
+    purrFilter.connect(purrGain);
+    purrGain.connect(audioCtx.destination);
+    purrOsc.start();
+
+    purrGain.gain.linearRampToValueAtTime(0.07, audioCtx.currentTime + 0.3);
+
+    // 呼噜节奏：嗡~嗡~嗡~
+    let phase = 0;
+    purrInterval = setInterval(() => {
+      if (!purring || !audioCtx) return;
+      const t = audioCtx.currentTime;
+      if (phase === 0) {
+        purrGain.gain.setValueAtTime(0.07, t);
+        purrGain.gain.linearRampToValueAtTime(0.02, t + 0.12);
+        purrGain.gain.linearRampToValueAtTime(0.07, t + 0.25);
+      }
+      phase = (phase + 1) % 3;
+    }, 160);
+  }
+
+  function stopPurr() {
+    if (!purring) return;
+    purring = false;
+    clearInterval(purrInterval);
+    purrInterval = null;
+
+    if (audioCtx && purrGain) {
+      purrGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.35);
+    }
+
+    setTimeout(() => {
+      try {
+        if (purrOsc) { purrOsc.stop(); purrOsc.disconnect(); purrOsc = null; }
+        if (purrFilter) { purrFilter.disconnect(); purrFilter = null; }
+        if (purrGain) { purrGain.disconnect(); purrGain = null; }
+      } catch(e) {}
+    }, 500);
+  }
+
+  function triggerPurr(dur = 2000) {
+    startPurr();
+    clearTimeout(window._purrTimer);
+    window._purrTimer = setTimeout(stopPurr, dur);
+  }
+
+  function toggleRain() {
+    if (!audioCtx || !rainGain) return;
+    rainOn = !rainOn;
+    document.getElementById('rainBtn').classList.toggle('active', rainOn);
+    rainGain.gain.linearRampToValueAtTime(rainOn ? 0.1 : 0, audioCtx.currentTime + 0.4);
+  }
+
+  // ========== 消息系统 ==========
+  const messages = {
+    tap:     ['喵~','呼噜呼噜~','喵呜~','嗯？','摸摸我嘛~','好舒服呀~','你真好~','再摸一下~'],
+    pet:     ['好舒服~','再摸摸我嘛~','蹭蹭~','好温暖~','最喜欢你了~','呜~好开心'],
+    comfort: ['晚安~','一起睡吧~','好困呀~','做个好梦~','我陪着你呢~','安心睡吧~','呼~呼~','zzzZZZ'],
+    lateNight: ['怎么还没睡呀','又在偷偷熬夜吗','快睡吧，很晚啦','你是不是又失眠了','我陪你数星星吧','熬夜不好哦'],
+    welcome: ['今天辛苦啦','我陪你睡','别想太多啦','欢迎回家~','累了吧，休息一下~','来，摸摸我~'],
+    comfortEnter: ['来，我哄你睡~','放松下来吧~','什么都别想啦~','我在这儿呢~','数数星星就睡着了~'],
+  };
+
+  const bubble = document.getElementById('textBubble');
+  let bubbleTimer = null;
+  let idleMsgTimer = null;
+
+  function showMessage(text, dur = 2800) {
+    clearTimeout(bubbleTimer);
+    bubble.textContent = text;
+    bubble.classList.add('show');
+    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), dur);
+  }
+
+  function randomMsg(cat) {
+    const pool = messages[cat];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function isLateNight() {
+    const h = new Date().getHours();
+    return h >= 1 && h < 5;
+  }
+
+  function startIdleMessages() {
+    clearInterval(idleMsgTimer);
+    idleMsgTimer = setInterval(() => {
+      if (comfortMode || bubble.classList.contains('show')) return;
+      if (isLateNight() && Math.random() > 0.4) {
+        showMessage(randomMsg('lateNight'), 3500);
+      } else if (Math.random() > 0.65) {
+        showMessage(randomMsg('tap'), 2200);
+      }
+    }, 18000);
+  }
+
+  // ========== 星空 ==========
+  function createStars() {
+    const c = document.getElementById('starsContainer');
+    for (let i = 0; i < 55; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      s.style.left = Math.random() * 100 + '%';
+      s.style.top = Math.random() * 100 + '%';
+      const size = 2 + Math.random() * 3;
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+      s.style.setProperty('--dur', (2.5 + Math.random() * 5) + 's');
+      s.style.setProperty('--delay', Math.random() * 6 + 's');
+      c.appendChild(s);
+    }
+  }
+
+  // ========== 安抚模式 ==========
+  let comfortMode = false;
+  const cat = document.getElementById('cat');
+  const catInner = document.getElementById('catInner');
+  const catSvg = document.getElementById('catSvg');
+  const blanket = document.getElementById('blanket');
+  const overlay = document.getElementById('darkOverlay');
+  const starsContainer = document.getElementById('starsContainer');
+  const modeHint = document.getElementById('modeHint');
+
+  function enterComfortMode() {
+    if (comfortMode) return;
+    comfortMode = true;
+
+    cat.classList.add('comfort', 'sleepy-face');
+    blanket.classList.add('active');
+    overlay.classList.add('active');
+    starsContainer.classList.add('active');
+    modeHint.classList.remove('show');
+
+    showMessage(randomMsg('comfortEnter'), 3200);
+    startPurr();
+
+    window._comfortMsgInterval = setInterval(() => {
+      if (isLateNight() && Math.random() > 0.45) {
+        showMessage(randomMsg('lateNight'), 3500);
+      } else {
+        showMessage(randomMsg('comfort'), 3000);
+      }
+    }, 7500);
+  }
+
+  function exitComfortMode() {
+    if (!comfortMode) return;
+    comfortMode = false;
+
+    cat.classList.remove('comfort', 'sleepy-face');
+    blanket.classList.remove('active');
+    overlay.classList.remove('active');
+    starsContainer.classList.remove('active');
+    modeHint.classList.add('show');
+
+    stopPurr();
+    clearInterval(window._comfortMsgInterval);
+
+    showMessage(randomMsg('welcome'), 3000);
+    startIdleMessages();
+  }
+
+  // ========== 互动 ==========
+  const catArea = document.getElementById('catArea');
+  let longPressTimer = null;
+  let isPressing = false;
+  let petCount = 0;
+  let lastPetTime = 0;
+
+  function createHeart(x, y) {
+    const hearts = ['💕','💗','💖','✨','💝','🩷','💫'];
+    const el = document.createElement('div');
+    el.className = 'heart-particle';
+    el.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.fontSize = (14 + Math.random() * 16) + 'px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+
+  catArea.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    initAudio();
+    isPressing = true;
+
+    if (comfortMode) {
+      exitComfortMode();
+      isPressing = false;
+      return;
+    }
+
+    clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+      if (isPressing) enterComfortMode();
+    }, 1300);
+
+    triggerPurr(2000);
+    blinkCat();
+
+    if (isLateNight() && Math.random() > 0.4) {
+      showMessage(randomMsg('lateNight'), 3000);
+    } else {
+      showMessage(randomMsg('tap'), 2000);
+    }
+  });
+
+  catArea.addEventListener('pointermove', (e) => {
+    if (!isPressing) return;
+    if (Date.now() - lastPetTime > 180) {
+      createHeart(e.clientX, e.clientY);
+      lastPetTime = Date.now();
+      petCount++;
+      if (petCount % 6 === 0 && !comfortMode) {
+        showMessage(randomMsg('pet'), 2500);
+      }
+    }
+    const rect = catArea.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const tilt = (e.clientX - cx) / rect.width * 7;
+    catInner.style.transform = `rotate(${tilt}deg) scale(1.06)`;
+  });
+
+  catArea.addEventListener('pointerup', () => {
+    isPressing = false;
+    clearTimeout(longPressTimer);
+    catInner.style.transform = '';
+  });
+
+  catArea.addEventListener('pointerleave', () => {
+    isPressing = false;
+    clearTimeout(longPressTimer);
+    catInner.style.transform = '';
+  });
+
+  catArea.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    clearTimeout(longPressTimer);
+    if (comfortMode) exitComfortMode(); else enterComfortMode();
+  });
+
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+  // ========== 眨眼 ==========
+  function blinkCat() {
+    if (comfortMode) return;
+    cat.classList.add('blinking');
+    setTimeout(() => cat.classList.remove('blinking'), 350);
+  }
+
+  function randomBlink() {
+    blinkCat();
+    setTimeout(randomBlink, 3000 + Math.random() * 7000);
+  }
+
+  // ========== 按钮 ==========
+  document.getElementById('rainBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    initAudio();
+    toggleRain();
+  });
+
+  // ========== 启动 ==========
+  function init() {
+    createStars();
+
+    setTimeout(() => {
+      if (isLateNight()) {
+        showMessage(randomMsg('lateNight'), 4000);
+      } else {
+        showMessage(randomMsg('welcome'), 3500);
+      }
+    }, 800);
+
+    setTimeout(() => modeHint.classList.add('show'), 3000);
+    setTimeout(randomBlink, 2200);
+    startIdleMessages();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
